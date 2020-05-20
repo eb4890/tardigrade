@@ -116,7 +116,7 @@ class SampleFrequency(metaclass=abc.ABCMeta):
     This is the abstract base class"""
 
     @abc.abstractmethod
-    def should_resample(self, world):
+    def should_resample(self, world: World):
         """should_resample is called by the RandomVariable to determie if
         it is the right time to resample the variable"""
         ...
@@ -129,7 +129,7 @@ class Once(SampleFrequency):
 
     """Once samples once during the run"""
 
-    def should_resample(self, world):
+    def should_resample(self, world: World):
         """should_resample is called by the RandomVariable to determie if
         it is the right time to resample the variable"""
         if self.force_resample:
@@ -141,7 +141,7 @@ class Once(SampleFrequency):
 class Nticks(SampleFrequency):
     """Nticks resamples the random variable once every n-ticks of the clock"""
 
-    def should_resample(self, world):
+    def should_resample(self, world: World):
         """should_resample is called by the RandomVariable to determine if
         it is the right time to resample the variable"""
         if world.tick > (self.ticks_per_sample + self.last_tick):
@@ -160,7 +160,7 @@ class Model:
     that is expected to take the world, the current state, the current time and
     the difference in time from the last world"""
 
-    def __init__(self, state, func):
+    def __init__(self, state: Any, func: Callable[[World, Any, Int, Int], Any]):
         self.state = state
         self.func = func
 
@@ -173,21 +173,27 @@ class RandomVariable:
     """RandomVariable brings together he frequency and distribution in order
     It also maintains knowledge of the current state of the random variable"""
 
-    def __init__(self, name, variable_type, frequency, distribution):
+    def __init__(
+        self,
+        name: str,
+        variable_type: str,
+        frequency: SampleFrequency,
+        distribution: Distribution,
+    ):
         self.name = name
         self.variable_type = variable_type
         self.frequency = frequency
         self.distribution = distribution
         self.value = None
 
-    def get_value(self, world):
+    def get_value(self, world: World):
         """get_value gets the current value of the random variable. Sampling it if
         required"""
         if self.frequency.should_resample(world) or self.value is None:
             self.value = self.distribution.sample()
         return self.value
 
-    def set_num_samples(self, samples):
+    def set_num_samples(self, samples: int) -> None:
         """Sets the number of samples for the run"""
         self.distribution.set_num_samples(samples)
 
@@ -200,20 +206,20 @@ class UncertainModel:
         self.model_list = []
         self.random_variable = None
 
-    def add_model(self, model):
+    def add_model(self, model: Model) -> None:
         """Adds a new model to the possible models"""
         self.model_list.append(model)
 
-    def add_random_variable(self, variable):
+    def add_random_variable(self, variable: RandomVariable) -> None:
         """Adds a new variable to control which model is picked"""
         self.random_variable = variable
 
-    def run(self, world, state, time, time_diff):
+    def run(self, world: World, state: Any, time: int, time_diff: int) -> Any:
         """Runs the model based on the random variable"""
         if self.random_varibale is None:
             Raise(
                 Exception(
-                    "Undefined random variable for uncertain model for ",
+                    "Undefined random variable for uncertain model ",
                     self.model_list[0].name,
                 )
             )
@@ -230,17 +236,15 @@ class State:
         self.type = state_type
         self.val = val
 
-    def get_val(self):
+    def get_val(self) -> Any:
         """Gets the value of the state"""
         return self.val
-
-
 
 
 class World:
     """World is the entire context for the simulation"""
 
-    def next(self, state, func):
+    def next(self, state: State, func: Callable[[World, Any, Int, Int], Any]) -> None:
         """Next defines the function that updates the particular state over time"""
         model = Model(state, func)
         if state in self.model_map:
@@ -264,6 +268,7 @@ class World:
         )
 
     def copy_state_and_models(self, world):
+        """Copies state and models from one world to another"""
         self.state_map.update(world.state_map)
         # TODO Need to do work in here if there are two models
         # with the same name to make an uncertain one
